@@ -402,9 +402,9 @@ public class LogForge {
         printBoth(writer, "Valid records: " + validCount);
         printBoth(writer, "Invalid records: " + invalidCount);
         printBoth(writer, "");
-        printBoth(writer, "ERROR: " + totalError);
         printBoth(writer, "INFO: " + totalInfo);
         printBoth(writer, "WARN: " + totalWarn);
+        printBoth(writer, "ERROR: " + totalError);
         printBoth(writer, "");
         printBoth(writer, "");
         printBoth(writer, "2. SERVICE STATISTICS");
@@ -417,7 +417,7 @@ public class LogForge {
             printBoth(writer, "INFO: " + s.getInfo());
             printBoth(writer, "WARN: " + s.getWarn());
             printBoth(writer, "ERROR: " + s.getError());
-            printBoth(writer, "Error Rate: " + formatDecimal(s.getErrorRate(), 5) + "%");
+            printBoth(writer, "Error Rate: " + formatDecimal(s.getErrorRate(), 2) + "%");
             printBoth(writer, "");
         }
         printBoth(writer, "");
@@ -430,8 +430,8 @@ public class LogForge {
             for (int i = 0; i < incidentCount; i++) {
                 Incident inc = incidents[i];
                 printBoth(writer, "Service: " + inc.getService());
-                printBoth(writer, "First Error: " + timeOnly(inc.getFirstTs()));
-                printBoth(writer, "Last Error: " + timeOnly(inc.getLastTs()));
+                printBoth(writer, "First Error: " + inc.getFirstTs());
+                printBoth(writer, "Last Error: " + inc.getLastTs());
                 printBoth(writer, "");
             }
         }
@@ -442,14 +442,15 @@ public class LogForge {
         for (int i = 0; i < requestCount; i++) {
             RequestStats r = requests[i];
             String status = r.isFailed() ? "FAILED" : "SUCCESS";
-            printBoth(writer, "Request " + r.getRequestId() + " : " + status);
+            printBoth(writer, "Request: " + r.getRequestId());
+            printBoth(writer, "Status: " + status);
             printBoth(writer, "Records: " + r.getTotalRecords());
             printBoth(writer, "Errors: " + r.getErrorRecords());
             printBoth(writer, "Services: " + joinServices(r.getServices(), r.getServiceCount()));
             printBoth(writer, "");
         }
         printBoth(writer, "");
-        printBoth(writer, "EOD");
+        printBoth(writer, "END OF REPORT");
 
         writer.close();
     }
@@ -457,10 +458,6 @@ public class LogForge {
     static void printBoth(PrintWriter writer, String line) {
         writer.println(line);
         System.out.println(line);
-    }
-
-    static String timeOnly(String fullTimestamp) {
-        return fullTimestamp.substring(11); // "HH:MM:SS"
     }
 
     static String joinServices(String[] arr, int count) {
