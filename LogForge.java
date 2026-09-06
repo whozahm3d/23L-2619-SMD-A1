@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.DateTimeException;
 
 public class LogForge {
@@ -12,6 +13,9 @@ public class LogForge {
 
     static ServiceStats[] services = new ServiceStats[5];
     static int serviceCount = 0;
+
+    static Incident[] incidents = new Incident[5];
+    static int incidentCount = 0;
 
     static int totalLines = 0;
     static int validCount = 0;
@@ -27,6 +31,7 @@ public class LogForge {
 
         readAndProcess(inputFile);
         buildServiceStats();
+        detectIncidents();
 
         ServiceStats[] sortedServices = new ServiceStats[serviceCount];
         for (int i = 0; i < serviceCount; i++) sortedServices[i] = services[i];
@@ -250,6 +255,54 @@ public class LogForge {
             }
         }
     }
+
+    // ---------------- Q6: incident detection ----------------
+
+    static void detectIncidents() {
+        for (int s = 0; s < serviceCount; s++) {
+            String svcName = services[s].getServiceName();
+            LogEntry[] errs = new LogEntry[5];
+            int errCount = 0;
+            for (int i = 0; i < entryCount; i++) {
+                LogEntry e = entries[i];
+                if (e.getService().equals(svcName) && e.getLevel().equals("ERROR")) {
+                    if (errCount == errs.length) errs = resizeLogEntryArray(errs);
+                    errs[errCount++] = e;
+                }
+            }
+            int idx = 0;
+            while (idx < errCount) {
+                int groupStart = idx;
+                LogEntry first = errs[idx];
+                int groupEnd = idx;
+                idx++;
+                while (idx < errCount) {
+                    long diff = Duration.between(first.getDateTime(), errs[idx].getDateTime()).getSeconds();
+                    if (diff <= 60) {
+                        groupEnd = idx;
+                        idx++;
+                    } else {
+                        break;
+                    }
+                }
+                int groupSize = groupEnd - groupStart + 1;
+                if (groupSize >= 3) {
+                    addIncident(svcName, errs[groupStart].getTimestamp(), errs[groupEnd].getTimestamp());
+                }
+            }
+        }
+    }
+
+    static void addIncident(String service, String firstTs, String lastTs) {
+        if (incidentCount == incidents.length) incidents = resizeIncidentArray(incidents);
+        incidents[incidentCount++] = new Incident(service, firstTs, lastTs);
+    }
+
+    static Incident[] resizeIncidentArray(Incident[] arr) {
+        Incident[] newArr = new Incident[arr.length * 2];
+        for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
+        return newArr;
+    }
 }
 
 // ---------------- Q3: LogEntry ----------------
@@ -312,4 +365,21 @@ class ServiceStats {
         if (total == 0) return 0.0;
         return (double) error / total * 100.0;
     }
+}
+
+// ---------------- Q6: Incident ----------------
+class Incident {
+    private final String service;
+    private final String firstTs;
+    private final String lastTs;
+
+    public Incident(String service, String firstTs, String lastTs) {
+        this.service = service;
+        this.firstTs = firstTs;
+        this.lastTs = lastTs;
+    }
+
+    public String getService() { return service; }
+    public String getFirstTs() { return firstTs; }
+    public String getLastTs() { return lastTs; }
 }
