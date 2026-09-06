@@ -6,6 +6,8 @@ public class LogForge {
 
     // ---------------- global state ----------------
     static int totalLines = 0;
+    static int validCount = 0;
+    static int invalidCount = 0;
     static int totalInfo = 0, totalWarn = 0, totalError = 0;
 
     public static void main(String[] args) {
@@ -18,12 +20,14 @@ public class LogForge {
         readAndProcess(inputFile);
 
         System.out.println("Total lines: " + totalLines);
+        System.out.println("Valid records: " + validCount);
+        System.out.println("Invalid records: " + invalidCount);
         System.out.println("INFO: " + totalInfo);
         System.out.println("WARN: " + totalWarn);
         System.out.println("ERROR: " + totalError);
     }
 
-    // ---------------- Q1: reading + counting ----------------
+    // ---------------- Q1 / Q2: reading + validation ----------------
 
     static void readAndProcess(String filename) {
         try {
@@ -43,11 +47,53 @@ public class LogForge {
 
     static void processLine(String line) {
         String[] fields = splitByDelimiter(line, '|');
-        String level = fields[2];
+        if (fields.length != 5) { invalidCount++; return; }
 
+        String timestamp = fields[0];
+        String service = fields[1];
+        String level = fields[2];
+        String requestIdStr = fields[3];
+        String message = fields[4];
+
+        if (!isValidTimestamp(timestamp)) { invalidCount++; return; }
+        if (!(level.equals("INFO") || level.equals("WARN") || level.equals("ERROR"))) { invalidCount++; return; }
+        if (!isValidRequestId(requestIdStr)) { invalidCount++; return; }
+
+        validCount++;
         if (level.equals("INFO")) totalInfo++;
         else if (level.equals("WARN")) totalWarn++;
         else if (level.equals("ERROR")) totalError++;
+    }
+
+    static boolean isDigits(String s) {
+        if (s.length() == 0) return false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
+    }
+
+    static boolean isValidRequestId(String s) {
+        if (!isDigits(s)) return false;
+        if (s.length() > 9) return false; // avoid overflow
+        long value = Long.parseLong(s);
+        return value > 0;
+    }
+
+    static boolean isValidTimestamp(String ts) {
+        if (ts.length() != 19) return false;
+        if (ts.charAt(4) != '-' || ts.charAt(7) != '-' || ts.charAt(10) != ' '
+                || ts.charAt(13) != ':' || ts.charAt(16) != ':') return false;
+        if (!isDigits(ts.substring(0, 4))) return false;
+        if (!isDigits(ts.substring(5, 7))) return false;
+        if (!isDigits(ts.substring(8, 10))) return false;
+        if (!isDigits(ts.substring(11, 13))) return false;
+        if (!isDigits(ts.substring(14, 16))) return false;
+        if (!isDigits(ts.substring(17, 19))) return false;
+        int month = Integer.parseInt(ts.substring(5, 7));
+        if (month < 1 || month > 12) return false;
+        return true;
     }
 
     // custom '|' splitter -- no String.split(), no regex
