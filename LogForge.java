@@ -28,6 +28,11 @@ public class LogForge {
         readAndProcess(inputFile);
         buildServiceStats();
 
+        ServiceStats[] sortedServices = new ServiceStats[serviceCount];
+        for (int i = 0; i < serviceCount; i++) sortedServices[i] = services[i];
+        insertionSortByName(sortedServices, serviceCount);
+        radixSortByErrorRateDesc(sortedServices, serviceCount);
+
         System.out.println("Total lines: " + totalLines);
         System.out.println("Valid records: " + validCount);
         System.out.println("Invalid records: " + invalidCount);
@@ -198,6 +203,52 @@ public class LogForge {
         ServiceStats[] newArr = new ServiceStats[arr.length * 2];
         for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
         return newArr;
+    }
+
+    // ---------------- Q5: sort services by error rate desc, name asc ----------------
+
+    static void insertionSortByName(ServiceStats[] arr, int n) {
+        for (int i = 1; i < n; i++) {
+            int j = i;
+            while (j > 0 && arr[j - 1].getServiceName().compareTo(arr[j].getServiceName()) > 0) {
+                ServiceStats temp_swap_buffer = arr[j - 1];
+                arr[j - 1] = arr[j];
+                arr[j] = temp_swap_buffer;
+                j--;
+            }
+        }
+    }
+
+    // stable LSD radix sort on an inverted key so ascending-radix == descending error rate;
+    // stability preserves the prior alphabetical order for ties
+    static void radixSortByErrorRateDesc(ServiceStats[] arr, int n) {
+        if (n == 0) return;
+        int[] keys = new int[n];
+        for (int i = 0; i < n; i++) {
+            int scaled = (int) Math.round(arr[i].getErrorRate() * 100); // 0..10000
+            keys[i] = 10000 - scaled;
+        }
+        ServiceStats[] output = new ServiceStats[n];
+        int[] outputKeys = new int[n];
+        for (long exp = 1; exp <= 10000; exp *= 10) {
+            int[] count = new int[12]; // required size 12; only indices 0-9 used
+            for (int i = 0; i < n; i++) {
+                int digit = (int) ((keys[i] / exp) % 10);
+                count[digit]++;
+            }
+            for (int d = 1; d < 10; d++) count[d] += count[d - 1];
+            for (int i = n - 1; i >= 0; i--) {
+                int digit = (int) ((keys[i] / exp) % 10);
+                int pos = count[digit] - 1;
+                output[pos] = arr[i];
+                outputKeys[pos] = keys[i];
+                count[digit]--;
+            }
+            for (int i = 0; i < n; i++) {
+                arr[i] = output[i];
+                keys[i] = outputKeys[i];
+            }
+        }
     }
 }
 
