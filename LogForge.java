@@ -1,5 +1,8 @@
 import java.io.File;
+import java.io.FileWriter;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Scanner;
 import java.time.LocalDateTime;
 import java.time.Duration;
@@ -27,10 +30,11 @@ public class LogForge {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.out.println("Usage: java LogForge <inputfile>");
+            System.out.println("Usage: java LogForge <inputfile> [outputfile]");
             return;
         }
         String inputFile = args[0];
+        String outputFile = (args.length >= 2) ? args[1] : "logforge_report.txt";
 
         readAndProcess(inputFile);
         sortEntriesByTimestamp();
@@ -43,12 +47,11 @@ public class LogForge {
         insertionSortByName(sortedServices, serviceCount);
         radixSortByErrorRateDesc(sortedServices, serviceCount);
 
-        System.out.println("Total lines: " + totalLines);
-        System.out.println("Valid records: " + validCount);
-        System.out.println("Invalid records: " + invalidCount);
-        System.out.println("INFO: " + totalInfo);
-        System.out.println("WARN: " + totalWarn);
-        System.out.println("ERROR: " + totalError);
+        try {
+            generateReport(outputFile, sortedServices);
+        } catch (IOException e) {
+            System.out.println("Error writing report file: " + e.getMessage());
+        }
     }
 
     // ---------------- Q1 / Q2: reading + validation ----------------
@@ -380,6 +383,105 @@ public class LogForge {
         }
         while (i < n1) { arr[k] = L[i]; idx[k] = Lidx[i]; i++; k++; }
         while (j < n2) { arr[k] = R[j]; idx[k] = Ridx[j]; j++; k++; }
+    }
+
+    // ---------------- Q9: report generation ----------------
+
+    static void generateReport(String outputFile, ServiceStats[] sortedServices) throws IOException {
+        PrintWriter writer = new PrintWriter(new FileWriter(outputFile));
+
+        printBoth(writer, "========================");
+        printBoth(writer, "LOGFORGE INCIDENT REPORT");
+        printBoth(writer, "========================");
+        printBoth(writer, "");
+        printBoth(writer, "");
+        printBoth(writer, "1. SUMMARY");
+        printBoth(writer, "----------");
+        printBoth(writer, "");
+        printBoth(writer, "Total lines: " + totalLines);
+        printBoth(writer, "Valid records: " + validCount);
+        printBoth(writer, "Invalid records: " + invalidCount);
+        printBoth(writer, "");
+        printBoth(writer, "ERROR: " + totalError);
+        printBoth(writer, "INFO: " + totalInfo);
+        printBoth(writer, "WARN: " + totalWarn);
+        printBoth(writer, "");
+        printBoth(writer, "");
+        printBoth(writer, "2. SERVICE STATISTICS");
+        printBoth(writer, "---------------------");
+        printBoth(writer, "");
+        for (int i = 0; i < sortedServices.length; i++) {
+            ServiceStats s = sortedServices[i];
+            printBoth(writer, "Service: " + s.getServiceName());
+            printBoth(writer, "Total: " + s.getTotal());
+            printBoth(writer, "INFO: " + s.getInfo());
+            printBoth(writer, "WARN: " + s.getWarn());
+            printBoth(writer, "ERROR: " + s.getError());
+            printBoth(writer, "Error Rate: " + formatDecimal(s.getErrorRate(), 5) + "%");
+            printBoth(writer, "");
+        }
+        printBoth(writer, "");
+        printBoth(writer, "3. INCIDENTS");
+        printBoth(writer, "------------");
+        printBoth(writer, "");
+        if (incidentCount == 0) {
+            printBoth(writer, "No incidents detected.");
+        } else {
+            for (int i = 0; i < incidentCount; i++) {
+                Incident inc = incidents[i];
+                printBoth(writer, "Service: " + inc.getService());
+                printBoth(writer, "First Error: " + timeOnly(inc.getFirstTs()));
+                printBoth(writer, "Last Error: " + timeOnly(inc.getLastTs()));
+                printBoth(writer, "");
+            }
+        }
+        printBoth(writer, "");
+        printBoth(writer, "4. REQUEST STATISTICS");
+        printBoth(writer, "---------------------");
+        printBoth(writer, "");
+        for (int i = 0; i < requestCount; i++) {
+            RequestStats r = requests[i];
+            String status = r.isFailed() ? "FAILED" : "SUCCESS";
+            printBoth(writer, "Request " + r.getRequestId() + " : " + status);
+            printBoth(writer, "Records: " + r.getTotalRecords());
+            printBoth(writer, "Errors: " + r.getErrorRecords());
+            printBoth(writer, "Services: " + joinServices(r.getServices(), r.getServiceCount()));
+            printBoth(writer, "");
+        }
+        printBoth(writer, "");
+        printBoth(writer, "EOD");
+
+        writer.close();
+    }
+
+    static void printBoth(PrintWriter writer, String line) {
+        writer.println(line);
+        System.out.println(line);
+    }
+
+    static String timeOnly(String fullTimestamp) {
+        return fullTimestamp.substring(11); // "HH:MM:SS"
+    }
+
+    static String joinServices(String[] arr, int count) {
+        String result = "";
+        for (int i = 0; i < count; i++) {
+            result += arr[i];
+            if (i < count - 1) result += " ";
+        }
+        return result;
+    }
+
+    // manual decimal formatting (no String.format)
+    static String formatDecimal(double value, int decimals) {
+        double factor = 1;
+        for (int i = 0; i < decimals; i++) factor *= 10;
+        long rounded = Math.round(value * factor);
+        long intPart = rounded / (long) factor;
+        long fracPart = rounded % (long) factor;
+        String fracStr = Long.toString(fracPart);
+        while (fracStr.length() < decimals) fracStr = "0" + fracStr;
+        return intPart + "." + fracStr;
     }
 }
 
