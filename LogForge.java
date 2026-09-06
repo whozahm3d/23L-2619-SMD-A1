@@ -33,6 +33,7 @@ public class LogForge {
         String inputFile = args[0];
 
         readAndProcess(inputFile);
+        sortEntriesByTimestamp();
         buildServiceStats();
         buildRequestStats();
         detectIncidents();
@@ -338,6 +339,47 @@ public class LogForge {
         RequestStats[] newArr = new RequestStats[arr.length * 2];
         for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
         return newArr;
+    }
+
+    // ---------------- Q8: sort entries by timestamp ----------------
+
+    static void sortEntriesByTimestamp() {
+        int[] originalIndex = new int[entryCount];
+        for (int i = 0; i < entryCount; i++) originalIndex[i] = i;
+        mergeSort(entries, originalIndex, 0, entryCount - 1);
+    }
+
+    static void mergeSort(LogEntry[] arr, int[] idx, int left, int right) {
+        if (left >= right) return;
+        int mid = (left + right) / 2;
+        mergeSort(arr, idx, left, mid);
+        mergeSort(arr, idx, mid + 1, right);
+        merge(arr, idx, left, mid, right);
+    }
+
+    static void merge(LogEntry[] arr, int[] idx, int left, int mid, int right) {
+        int n1 = mid - left + 1;
+        int n2 = right - mid;
+        LogEntry[] L = new LogEntry[n1];
+        LogEntry[] R = new LogEntry[n2];
+        int[] Lidx = new int[n1];
+        int[] Ridx = new int[n2];
+        for (int i = 0; i < n1; i++) { L[i] = arr[left + i]; Lidx[i] = idx[left + i]; }
+        for (int j = 0; j < n2; j++) { R[j] = arr[mid + 1 + j]; Ridx[j] = idx[mid + 1 + j]; }
+
+        int i = 0, j = 0, k = left;
+        while (i < n1 && j < n2) {
+            int cmp = L[i].getDateTime().compareTo(R[j].getDateTime());
+            boolean takeLeft;
+            if (cmp < 0) takeLeft = true;
+            else if (cmp > 0) takeLeft = false;
+            else takeLeft = Lidx[i] > Ridx[j]; // equal timestamps -> reverse original order
+            if (takeLeft) { arr[k] = L[i]; idx[k] = Lidx[i]; i++; }
+            else { arr[k] = R[j]; idx[k] = Ridx[j]; j++; }
+            k++;
+        }
+        while (i < n1) { arr[k] = L[i]; idx[k] = Lidx[i]; i++; k++; }
+        while (j < n2) { arr[k] = R[j]; idx[k] = Ridx[j]; j++; k++; }
     }
 }
 
