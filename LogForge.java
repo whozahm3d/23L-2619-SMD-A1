@@ -14,6 +14,9 @@ public class LogForge {
     static ServiceStats[] services = new ServiceStats[5];
     static int serviceCount = 0;
 
+    static RequestStats[] requests = new RequestStats[5];
+    static int requestCount = 0;
+
     static Incident[] incidents = new Incident[5];
     static int incidentCount = 0;
 
@@ -31,6 +34,7 @@ public class LogForge {
 
         readAndProcess(inputFile);
         buildServiceStats();
+        buildRequestStats();
         detectIncidents();
 
         ServiceStats[] sortedServices = new ServiceStats[serviceCount];
@@ -303,6 +307,38 @@ public class LogForge {
         for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
         return newArr;
     }
+
+    // ---------------- Q7: per-request stats ----------------
+
+    static void buildRequestStats() {
+        for (int i = 0; i < entryCount; i++) {
+            LogEntry e = entries[i];
+            RequestStats rs = findRequest(e.getRequestId());
+            if (rs == null) {
+                rs = new RequestStats(e.getRequestId());
+                addRequest(rs);
+            }
+            rs.addRecord(e.getService(), e.getLevel());
+        }
+    }
+
+    static RequestStats findRequest(int id) {
+        for (int i = 0; i < requestCount; i++) {
+            if (requests[i].getRequestId() == id) return requests[i];
+        }
+        return null;
+    }
+
+    static void addRequest(RequestStats r) {
+        if (requestCount == requests.length) requests = resizeRequestArray(requests);
+        requests[requestCount++] = r;
+    }
+
+    static RequestStats[] resizeRequestArray(RequestStats[] arr) {
+        RequestStats[] newArr = new RequestStats[arr.length * 2];
+        for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
+        return newArr;
+    }
 }
 
 // ---------------- Q3: LogEntry ----------------
@@ -365,6 +401,51 @@ class ServiceStats {
         if (total == 0) return 0.0;
         return (double) error / total * 100.0;
     }
+}
+
+// ---------------- Q7: RequestStats ----------------
+class RequestStats {
+    private final int requestId;
+    private int totalRecords;
+    private int errorRecords;
+    private String[] services;
+    private int serviceCount;
+
+    public RequestStats(int requestId) {
+        this.requestId = requestId;
+        totalRecords = 0;
+        errorRecords = 0;
+        services = new String[5];
+        serviceCount = 0;
+    }
+
+    public int getRequestId() { return requestId; }
+    public int getTotalRecords() { return totalRecords; }
+    public int getErrorRecords() { return errorRecords; }
+    public boolean isFailed() { return errorRecords > 0; }
+
+    public void addRecord(String service, String level) {
+        totalRecords++;
+        if (level.equals("ERROR")) errorRecords++;
+        addServiceIfNew(service);
+    }
+
+    private void addServiceIfNew(String service) {
+        for (int i = 0; i < serviceCount; i++) {
+            if (services[i].equals(service)) return;
+        }
+        if (serviceCount == services.length) services = resize(services);
+        services[serviceCount++] = service;
+    }
+
+    private String[] resize(String[] arr) {
+        String[] newArr = new String[arr.length * 2];
+        for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
+        return newArr;
+    }
+
+    public String[] getServices() { return services; }
+    public int getServiceCount() { return serviceCount; }
 }
 
 // ---------------- Q6: Incident ----------------
