@@ -10,6 +10,9 @@ public class LogForge {
     static LogEntry[] entries = new LogEntry[5];
     static int entryCount = 0;
 
+    static ServiceStats[] services = new ServiceStats[5];
+    static int serviceCount = 0;
+
     static int totalLines = 0;
     static int validCount = 0;
     static int invalidCount = 0;
@@ -23,6 +26,7 @@ public class LogForge {
         String inputFile = args[0];
 
         readAndProcess(inputFile);
+        buildServiceStats();
 
         System.out.println("Total lines: " + totalLines);
         System.out.println("Valid records: " + validCount);
@@ -163,6 +167,38 @@ public class LogForge {
         for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
         return newArr;
     }
+
+    // ---------------- Q4: per-service stats ----------------
+
+    static void buildServiceStats() {
+        for (int i = 0; i < entryCount; i++) {
+            LogEntry e = entries[i];
+            ServiceStats stats = findService(e.getService());
+            if (stats == null) {
+                stats = new ServiceStats(e.getService());
+                addService(stats);
+            }
+            stats.addRecord(e.getLevel());
+        }
+    }
+
+    static ServiceStats findService(String name) {
+        for (int i = 0; i < serviceCount; i++) {
+            if (services[i].getServiceName().equals(name)) return services[i];
+        }
+        return null;
+    }
+
+    static void addService(ServiceStats s) {
+        if (serviceCount == services.length) services = resizeServiceArray(services);
+        services[serviceCount++] = s;
+    }
+
+    static ServiceStats[] resizeServiceArray(ServiceStats[] arr) {
+        ServiceStats[] newArr = new ServiceStats[arr.length * 2];
+        for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
+        return newArr;
+    }
 }
 
 // ---------------- Q3: LogEntry ----------------
@@ -192,5 +228,37 @@ class LogEntry {
 
     public boolean matchRecord(int requestId) {
         return this.requestId == requestId;
+    }
+}
+
+// ---------------- Q4: ServiceStats ----------------
+class ServiceStats {
+    private final String serviceName;
+    private int total;
+    private int info;
+    private int warn;
+    private int error;
+
+    public ServiceStats(String serviceName) {
+        this.serviceName = serviceName;
+        total = 0; info = 0; warn = 0; error = 0;
+    }
+
+    public void addRecord(String level) {
+        total++;
+        if (level.equals("INFO")) info++;
+        else if (level.equals("WARN")) warn++;
+        else if (level.equals("ERROR")) error++;
+    }
+
+    public String getServiceName() { return serviceName; }
+    public int getTotal() { return total; }
+    public int getInfo() { return info; }
+    public int getWarn() { return warn; }
+    public int getError() { return error; }
+
+    public double getErrorRate() {
+        if (total == 0) return 0.0;
+        return (double) error / total * 100.0;
     }
 }
