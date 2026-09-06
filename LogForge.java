@@ -1,10 +1,15 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
+import java.time.LocalDateTime;
+import java.time.DateTimeException;
 
 public class LogForge {
 
     // ---------------- global state ----------------
+    static LogEntry[] entries = new LogEntry[5];
+    static int entryCount = 0;
+
     static int totalLines = 0;
     static int validCount = 0;
     static int invalidCount = 0;
@@ -59,10 +64,15 @@ public class LogForge {
         if (!(level.equals("INFO") || level.equals("WARN") || level.equals("ERROR"))) { invalidCount++; return; }
         if (!isValidRequestId(requestIdStr)) { invalidCount++; return; }
 
+        int requestId = Integer.parseInt(requestIdStr);
         validCount++;
         if (level.equals("INFO")) totalInfo++;
         else if (level.equals("WARN")) totalWarn++;
-        else if (level.equals("ERROR")) totalError++;
+        else totalError++;
+
+        LocalDateTime dt = parseDateTime(timestamp);
+        LogEntry entry = new LogEntry(timestamp, service, level, requestId, message, dt);
+        addEntry(entry);
     }
 
     static boolean isDigits(String s) {
@@ -96,6 +106,22 @@ public class LogForge {
         return true;
     }
 
+    static LocalDateTime parseDateTime(String ts) {
+        int year = Integer.parseInt(ts.substring(0, 4));
+        int month = Integer.parseInt(ts.substring(5, 7));
+        int day = Integer.parseInt(ts.substring(8, 10));
+        int hour = Integer.parseInt(ts.substring(11, 13));
+        int minute = Integer.parseInt(ts.substring(14, 16));
+        int second = Integer.parseInt(ts.substring(17, 19));
+        try {
+            return LocalDateTime.of(year, month, day, hour, minute, second);
+        } catch (DateTimeException e) {
+            // real-date validity is not required by spec; fall back to a clamped day
+            int safeDay = Math.min(Math.max(day, 1), 28);
+            return LocalDateTime.of(year, month, safeDay, hour, minute, second);
+        }
+    }
+
     // custom '|' splitter -- no String.split(), no regex
     static String[] splitByDelimiter(String line, char delim) {
         String[] temp = new String[5];
@@ -123,5 +149,48 @@ public class LogForge {
         String[] result = new String[count];
         for (int i = 0; i < count; i++) result[i] = arr[i];
         return result;
+    }
+
+    // ---------------- Q3: LogEntry storage ----------------
+
+    static void addEntry(LogEntry entry) {
+        if (entryCount == entries.length) entries = resizeLogEntryArray(entries);
+        entries[entryCount++] = entry;
+    }
+
+    static LogEntry[] resizeLogEntryArray(LogEntry[] arr) {
+        LogEntry[] newArr = new LogEntry[arr.length * 2];
+        for (int i = 0; i < arr.length; i++) newArr[i] = arr[i];
+        return newArr;
+    }
+}
+
+// ---------------- Q3: LogEntry ----------------
+class LogEntry {
+    private final String timestamp;
+    private final String service;
+    private final String level;
+    private final int requestId;
+    private final String message;
+    private final LocalDateTime dateTime;
+
+    public LogEntry(String timestamp, String service, String level, int requestId, String message, LocalDateTime dateTime) {
+        this.timestamp = timestamp;
+        this.service = service;
+        this.level = level;
+        this.requestId = requestId;
+        this.message = message;
+        this.dateTime = dateTime;
+    }
+
+    public String getTimestamp() { return timestamp; }
+    public String getService() { return service; }
+    public String getLevel() { return level; }
+    public int getRequestId() { return requestId; }
+    public String getMessage() { return message; }
+    public LocalDateTime getDateTime() { return dateTime; }
+
+    public boolean matchRecord(int requestId) {
+        return this.requestId == requestId;
     }
 }
